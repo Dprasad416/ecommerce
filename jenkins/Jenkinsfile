@@ -1,0 +1,166 @@
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven-3.9'      // Configure this name in Jenkins: Manage Jenkins -> Tools
+        jdk   'JDK-17'
+    }
+
+    environment {
+        // ── Docker / Registry ──
+        DOCKER_IMAGE       = "ecommerce-app"
+        DOCKER_REGISTRY    = "your-dockerhub-username"          // or your Nexus Docker registry host
+        IMAGE_TAG          = "${env.BUILD_NUMBER}"
+
+        // ── SonarQube ──
+        SONAR_URL          = "http://sonarqube.local:9000"
+
+        // ── Nexus ──
+        NEXUS_URL          = "nexus.local:8081"
+        NEXUS_REPO         = "maven-releases"
+
+        // ── Kubernetes ──
+        KUBE_NAMESPACE     = "ecommerce"
+    }
+
+    stages {
+
+        stage('1. Checkout from GitHub') {
+            steps {
+                echo "==> Cloning source code from GitHub..."
+                git branch: 'main',
+                    url: 'https://github.com/your-username/ecommerce-app.git',
+                    credentialsId: 'github-credentials'
+            }
+        }
+
+        stage('2. Build with Maven') {
+            steps {
+                echo "==> Compiling project and running unit tests..."
+                sh 'mvn clean compile'
+            }
+        }
+
+        stage('3. Unit Tests + Coverage') {
+            steps {
+                echo "==> Running tests with JaCoCo coverage..."
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                    jacoco execPattern: 'target/jacoco.exec'
+                }
+            }
+        }
+
+        stage('4. SonarQube Code Analysis') {
+            steps {
+                echo "==> Running static code analysis with SonarQube..."
+                withSonarQubeEnv('SonarQube-Server') {   // Configured in Jenkins -> System
+                    sh """
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=ecommerce-app \
+                          -Dsonar.host.url=${SONAR_URL} \
+                          -Dsonar.login=${SONAR_AUTH_TOKEN}
+                    """
+                }
+            }
+        }
+
+        stage('5. Quality Gate') {
+            steps {
+                echo "==> Waiting for SonarQube Quality Gate result..."
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('6. Package & Push to Nexus') {
+            steps {
+                echo "==> Building JAR and uploading to Nexus repository..."
+                sh 'mvn clean package -DskipTests'
+                sh 'mvn deploy -DskipTests'   // Uses <distributionManagement> in pom.xml
+            }
+        }
+
+        stage('7. Build Docker Image') {
+            steps {
+                echo "==> Building Docker image..."
+                sh """
+                    docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${IMAGE_TAG} .
+                    docker tag ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
+                """
+            }
+        }
+
+        stage('8. Push Docker Image') {
+            steps {
+                echo "==> Pushing Docker image to registry..."
+                withCredentials([usernamePassword(
+                    credentialsId: 'docker-hub-credentials',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh """
+                        echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${IMAGE_TAG}
+                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
+                    """
+                }
+            }
+        }
+
+        stage('9. Deploy to Kubernetes') {
+            steps {
+                echo "==> Deploying to Kubernetes cluster..."
+                withKubeConfig([credentialsId: 'kubeconfig-credentials']) {
+                    sh """
+                        sed -i 's|IMAGE_TAG_PLACEHOLDER|${IMAGE_TAG}|g' k8s/deployment.yaml
+                        kubectl apply -f k8s/namespace.yaml
+                        kubectl apply -f k8s/configmap.yaml
+                        kubectl apply -f k8s/secret.yaml
+                        kubectl apply -f k8s/mysql-deployment.yaml
+                        kubectl apply -f k8s/deployment.yaml
+                        kubectl apply -f k8s/service.yaml
+                        kubectl apply -f k8s/hpa.yaml
+                        kubectl apply -f k8s/ingress.yaml
+                        kubectl rollout status deployment/ecommerce-app -n ${KUBE_NAMESPACE} --timeout=180s
+                    """
+                }
+            }
+        }
+
+        stage('10. Smoke Test') {
+            steps {
+                echo "==> Verifying deployment health..."
+                withKubeConfig([credentialsId: 'kubeconfig-credentials']) {
+                    sh """
+                        sleep 20
+                        kubectl get pods -n ${KUBE_NAMESPACE}
+                        kubectl run curl-test --image=curlimages/curl --rm -i --restart=Never -n ${KUBE_NAMESPACE} -- \
+                          curl -f http://ecommerce-service/api/products
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "PIPELINE SUCCESS - Build #${BUILD_NUMBER} deployed to Kubernetes!"
+            slackSend channel: '#deployments', color: 'good',
+                message: "DEPLOYED: ecommerce-app build #${BUILD_NUMBER}"
+        }
+        failure {
+            echo "PIPELINE FAILED - Check logs for build #${BUILD_NUMBER}"
+            slackSend channel: '#deployments', color: 'danger',
+                message: "FAILED: ecommerce-app build #${BUILD_NUMBER}"
+        }
+        always {
+            sh 'docker logout || true'
+            cleanWs()
+        }
+    }
+}

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShopEasy</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- LOGIN / REGISTER SCREEN -->
+<div id="auth-screen" class="screen">
+    <div class="auth-card">
+        <h1>ShopEasy</h1>
+        <p class="subtitle">Your one-stop shopping app</p>
+
+        <div id="auth-tabs">
+            <button class="tab active" onclick="showTab('login')">Login</button>
+            <button class="tab" onclick="showTab('register')">Register</button>
+        </div>
+
+        <div id="login-form">
+            <input type="text" id="login-username" placeholder="Username" />
+            <input type="password" id="login-password" placeholder="Password" />
+            <button class="btn-primary" onclick="login()">Login</button>
+        </div>
+
+        <div id="register-form" style="display:none">
+            <input type="text" id="reg-username" placeholder="Username" />
+            <input type="email" id="reg-email" placeholder="Email" />
+            <input type="password" id="reg-password" placeholder="Password (min 6 chars)" />
+            <button class="btn-primary" onclick="register()">Create Account</button>
+        </div>
+
+        <p id="auth-error" class="error-msg"></p>
+    </div>
+</div>
+
+<!-- MAIN APP SCREEN -->
+<div id="app-screen" class="screen" style="display:none">
+
+    <header>
+        <h2>ShopEasy</h2>
+        <nav>
+            <button class="nav-btn active" onclick="showPage('products', this)">Products</button>
+            <button class="nav-btn" onclick="showPage('cart', this)">Cart <span id="cart-count" class="badge">0</span></button>
+            <button class="nav-btn" onclick="showPage('orders', this)">Orders</button>
+        </nav>
+        <div>
+            <span id="welcome-msg"></span>
+            <button class="btn-secondary" onclick="logout()">Logout</button>
+        </div>
+    </header>
+
+    <!-- PRODUCTS PAGE -->
+    <div id="page-products" class="page">
+        <div class="search-bar">
+            <input type="text" id="search-input" placeholder="Search products..." oninput="searchProducts()" />
+            <select id="category-filter" onchange="searchProducts()">
+                <option value="">All Categories</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Clothing">Clothing</option>
+                <option value="Books">Books</option>
+                <option value="Home">Home</option>
+            </select>
+        </div>
+        <div id="product-grid" class="product-grid"></div>
+    </div>
+
+    <!-- CART PAGE -->
+    <div id="page-cart" class="page" style="display:none">
+        <h3>Shopping Cart</h3>
+        <div id="cart-list"></div>
+        <div class="cart-summary">
+            <div class="cart-total">Total: ₹<span id="cart-total-amount">0.00</span></div>
+            <input type="text" id="shipping-address" placeholder="Shipping address" />
+            <button class="btn-primary" onclick="checkout()">Place Order</button>
+            <p id="checkout-error" class="error-msg"></p>
+        </div>
+    </div>
+
+    <!-- ORDERS PAGE -->
+    <div id="page-orders" class="page" style="display:none">
+        <h3>My Orders</h3>
+        <div id="orders-list"></div>
+    </div>
+
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>

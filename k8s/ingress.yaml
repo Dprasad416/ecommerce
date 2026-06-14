@@ -1,0 +1,29 @@
+# Ingress: exposes the app externally via a domain name
+# Requires an Ingress Controller (e.g. nginx-ingress) installed on the cluster:
+#   helm install nginx-ingress ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-ingress
+  namespace: ecommerce
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"   # For automatic HTTPS (optional)
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: shopeasy.example.com    # Replace with your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ecommerce-service
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - shopeasy.example.com
+    secretName: ecommerce-tls

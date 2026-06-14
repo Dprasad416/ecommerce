@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecommerce-app
+  namespace: ecommerce
+  labels:
+    app: ecommerce-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ecommerce-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: ecommerce-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+      - name: ecommerce-app
+        image: your-dockerhub-username/ecommerce-app:IMAGE_TAG_PLACEHOLDER
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: ecommerce-config
+        - secretRef:
+            name: ecommerce-secret
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 45
+          periodSeconds: 15

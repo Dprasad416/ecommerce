@@ -1,0 +1,52 @@
+# docker/docker-compose-tools.yml
+# Runs Jenkins, SonarQube, and Nexus on the DevOps tools EC2 instance
+#
+# Usage:
+#   docker compose -f docker-compose-tools.yml up -d
+
+version: "3.8"
+
+services:
+
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: jenkins
+    user: root                    # Needed to run docker commands from inside Jenkins
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+    restart: unless-stopped
+
+  sonarqube:
+    image: sonarqube:10-community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    restart: unless-stopped
+
+  nexus:
+    image: sonatype/nexus3:latest
+    container_name: nexus
+    ports:
+      - "8081:8081"   # Nexus UI + Maven repo
+      - "8082:8082"   # Docker registry (configure as a separate repo in Nexus UI)
+    volumes:
+      - nexus_data:/nexus-data
+    restart: unless-stopped
+
+volumes:
+  jenkins_home:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  nexus_data:

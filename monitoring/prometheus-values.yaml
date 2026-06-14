@@ -1,0 +1,73 @@
+# monitoring/prometheus-values.yaml
+# Install:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm install monitoring prometheus-community/kube-prometheus-stack -f prometheus-values.yaml -n monitoring --create-namespace
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "200m"
+
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+
+    # Scrape the Spring Boot app's /actuator/prometheus endpoint
+    additionalScrapeConfigs:
+    - job_name: 'ecommerce-app'
+      metrics_path: '/actuator/prometheus'
+      kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ['ecommerce']
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+
+grafana:
+  enabled: true
+  adminPassword: "Admin@2024"
+  service:
+    type: LoadBalancer
+
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        options:
+          path: /var/lib/grafana/dashboards
+
+# Recommended Grafana dashboard IDs to import:
+#   315  - Kubernetes Cluster Overview
+#   6417 - Kubernetes Pods
+#   4701 - JVM Micrometer (Spring Boot metrics)
+#   7362 - MySQL Overview
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        memory: "128Mi"
+
+# Example alert rules (configure via AlertmanagerConfig CRD or Grafana UI):
+# 1. ecommerce-app pod CPU > 80% for 5 min     -> Slack
+# 2. ecommerce-app pod restart count > 3       -> Slack
+# 3. HTTP 5xx error rate > 2%                  -> Email
+# 4. MySQL connections > 80% of max            -> Slack
+# 5. Deployment rollout stuck > 5 min          -> PagerDuty
