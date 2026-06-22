@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   name: ecommerce
   labels:
-    environment: production
+    app: ecommerce-app

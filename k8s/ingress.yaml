@@ -13,7 +13,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: shopeasy.example.com    # Replace with your domain
+  - host: app.durgaprasad.shop    # Replace with your domain
     http:
       paths:
       - path: /
@@ -25,5 +25,5 @@ spec:
               number: 80
   tls:
   - hosts:
-    - shopeasy.example.com
+    - app.durgaprasad.shop
     secretName: ecommerce-tls

@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: ecommerce-app
-        image: your-dockerhub-username/ecommerce-app:IMAGE_TAG_PLACEHOLDER
+        image: 771358505960.dkr.ecr.ap-south-1.amazonaws.com/ecommarce:latest
         ports:
         - containerPort: 8080
         envFrom:
