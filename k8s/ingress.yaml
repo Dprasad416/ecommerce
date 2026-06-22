@@ -7,10 +7,11 @@ kind: Ingress
 metadata:
   name: ecommerce-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"   # For automatic HTTPS (optional)
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip   # For automatic HTTPS (optional)
 spec:
-  ingressClassName: nginx
+  ingressClassName: alb
   rules:
   - host: app.durgaprasad.shop    # Replace with your domain
     http:

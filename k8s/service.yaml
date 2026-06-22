@@ -21,7 +21,6 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: ecommerce-hpa
-  namespace: ecommerce
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
